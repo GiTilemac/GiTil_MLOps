@@ -1,0 +1,43 @@
+version: '3.7'
+
+# Keep metrics to visualize, config files etc.
+volumes: 
+  grafana_data: {}
+
+networks:
+  front-tier:
+  back-tier:
+
+services:
+  db:
+    image: postgres
+    restart: always # Restart every time docker-compose runs
+    environment:
+      POSTGRES_PASSWORD: example # ! must be equal to secureJsonData.password in grafana_datasources.yaml !
+    ports:
+      - "5432:5432" # ! must be equal to the port specified in grana_datasources.yaml !
+    networks:
+      - back-tier # I'm not going to access this from my browser, so we leave it at the back-tier
+  
+  adminer: # tools to help manage db content, works natively with postgres
+    image: adminer
+    restart: always
+    ports:
+      - "8080:8080"
+    networks:
+      - back-tier # to communicate with db
+      - front-tier # to be able to access it from browser
+    
+  grafana:
+    image: grafana/grafana
+    restart: always
+    user: "472"
+    ports:
+      - "3000:3000"
+    volumes: # store the info of where to access the data source
+      - ./config/grafana_datasources.yaml:/etc/grafana/provisioning/datasources/datasource.yaml:ro
+      - ./config/grafana_dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:ro # Tell Grafana to use dashboard config
+      - ./dashboards:/opt/grafana/dashboards 
+    networks:
+      - back-tier # to communicate between Grafana and DB
+      - front-tier # to access from browser
